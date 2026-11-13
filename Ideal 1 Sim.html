@@ -1,0 +1,891 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Ideal 1 Sim Only</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout concept: one large orbitable 3D stage with a person beside the station, controls above it, a parts key, live readouts and a demand check below. */
+:root{
+  --bg:#f6f7f7;--fg:#16202a;--mut:#5a6772;--line:#cfd6db;--card:#ffffff;
+  --acc:#1d5f9e;--ok:#2f7a1f;--bad:#b3322d;--amb:#a86a0a;
+  --stage:#e9eef1;--floor:#d5dde2;--edge:#26323c;
+  --font-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-head:'Space Grotesk','Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171b;--fg:#e6ecf0;--mut:#9aa8b3;--line:#2f3a43;--card:#1a2127;
+  --acc:#7fb4ea;--ok:#8fd16f;--bad:#f08a85;--amb:#e8ae4a;
+  --stage:#1d262d;--floor:#2a353d;--edge:#c9d3da;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171b;--fg:#e6ecf0;--mut:#9aa8b3;--line:#2f3a43;--card:#1a2127;
+  --acc:#7fb4ea;--ok:#8fd16f;--bad:#f08a85;--amb:#e8ae4a;
+  --stage:#1d262d;--floor:#2a353d;--edge:#c9d3da;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--font-body);
+  padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+h1{font:600 22px/1.2 var(--font-head);margin:0;text-wrap:balance}
+p.sub{margin:4px 0 0;color:var(--mut);max-width:70ch}
+.controls{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.row .grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.row .name{font:500 12px var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-right:2px}
+button,select{font:inherit;padding:6px 11px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:6px;cursor:pointer}
+button:hover,select:hover{border-color:var(--acc)}
+button:focus-visible,select:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+label{color:var(--mut);font-size:13px}
+input[type=range]{vertical-align:middle;max-width:180px}
+.stage{position:relative;height:clamp(460px,66vw,740px);border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--stage)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+canvas:active{cursor:grabbing}
+#pins{position:absolute;inset:0;pointer-events:none}
+.pin{position:absolute;left:0;top:0;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--acc);color:var(--bg);border:2px solid var(--bg);
+  font:600 11px/16px var(--font-body);text-align:center;opacity:.92;transition:transform .12s}
+.pin.hot{transform:scale(1.5);z-index:2}
+.dim{position:absolute;left:0;top:0;font:600 11px/1.3 var(--font-body);color:var(--acc);background:var(--stage);padding:0 4px;border-radius:3px;white-space:nowrap;pointer-events:none}
+.hint{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--mut);pointer-events:none}
+#status{padding:8px 12px;border-radius:8px;background:var(--card);border:1px solid var(--line)}
+#key{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 16px;margin:0;padding:0;list-style:none;font-size:13px}
+#key li{display:flex;gap:8px;align-items:baseline;min-width:0;padding:2px 0;cursor:default}
+#key .n{flex:none;width:18px;height:18px;border-radius:50%;background:var(--acc);color:var(--bg);font:600 11px/18px var(--font-body);text-align:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.card .k{font-size:12px;color:var(--mut)}
+.card .v{font:600 18px var(--font-head);font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--card)}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:var(--bg);font-weight:600}
+td.st{white-space:nowrap;font-weight:600}
+.pass{color:var(--ok)}.fail{color:var(--bad)}.warn{color:var(--amb)}.na{color:var(--mut)}
+h2{font:600 15px var(--font-head);margin:6px 0 0}
+.note{font-size:12.5px;color:var(--mut);max-width:80ch}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto;transition:none}}
+</style>
+<style>.sub,h2,#key,.tablewrap,#hud,.note,#status~*{display:none!important}</style>
+
+
+<div class="wrap">
+  <div>
+    <h1>Ideal Design 1 in 3D, simulation only: passive constant-head station</h1>
+    <p class="sub">The ideal design as first drawn, before any FMEA fixes, restyled to follow the cardboard prototype: a narrow cup window on the upper front, an L-shaped jar opening at the bottom that wraps the front-right corner, a top cap and a stocky body. The mechanism is unchanged. A 20 L jar rides on springs so its water surface stays at 1.22 m, a fixed siphon feeds a pinch valve, and the weight of a cup opens the shutter. There are no electrics. Drag to orbit, scroll or pinch to zoom.</p>
+  </div>
+
+  <div class="controls">
+    <div class="row">
+      <div class="grp"><span class="name">User</span>
+        <select id="userSel" aria-label="Person using the station">
+          <option value="stand" selected>Standing adult</option>
+          <option value="wheel">Wheelchair user</option>
+          <option value="none">No person</option>
+        </select>
+        <span class="name">Cup</span>
+        <select id="cupSel" aria-label="Cup type">
+          <option value="mug">Mug, 350 mL</option>
+          <option value="paper">Paper cup, 300 mL (5 g)</option>
+          <option value="flask">Steel flask, 600 mL</option>
+          <option value="tall">Tall bottle, 1 L</option>
+          <option value="glass">Small glass, 150 mL</option>
+        </select>
+        <button id="bPlace">Place cup</button>
+        <button id="bRemove">Remove cup</button>
+        <button id="bAuto">Auto demo</button>
+        <button id="bTen">Serve 10 cups (fast)</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="grp"><span class="name">Jar</span>
+        <button id="bSwap">Change jar (pedal)</button>
+        <button id="bAir">Let air in</button>
+        <button id="bBulb">Squeeze bulb</button>
+        <label>Water left <input id="vSl" type="range" min="0" max="20" step="0.5" value="20"> <b id="vLb">20.0 L</b></label>
+      </div>
+    </div>
+    <div class="row">
+      <div class="grp"><span class="name">View</span>
+        <button id="vIso">3/4</button><button id="vFront">Front</button><button id="vSide">Side</button><button id="vTop">Top</button>
+        <label>Panels <select id="panSel"><option value="1" selected>Glass</option><option value="0">Solid (cardboard)</option><option value="2">Open</option></select></label>
+        <label>Dimensions <select id="dimSel"><option value="1" selected>On</option><option value="0">Off</option></select></label>
+        <label>Part markers <select id="labSel"><option value="1" selected>On</option><option value="0">Off</option></select></label>
+        <label>Speed <select id="spd"><option value="1">1x</option><option value="4" selected>4x</option><option value="16">16x</option></select></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" tabindex="0" aria-label="3D model of the station with a person. Drag to orbit, scroll to zoom."></canvas>
+    <div id="pins"></div>
+    <div class="hint">Drag to rotate, scroll to zoom</div>
+  </div>
+  <div id="status" role="status" aria-live="polite">Loading</div>
+
+  <h2>Parts</h2>
+  <ol id="key"></ol>
+
+  <div class="grid" id="hud"></div>
+
+  <h2>How the model meets the technical demands</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Demand</th><th>Reading now</th><th>Result</th></tr></thead>
+    <tbody id="chk"></tbody>
+  </table></div>
+  <h2>Match to the physical prototype</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Prototype (from the photo)</th><th>This model</th><th>Match</th></tr></thead>
+    <tbody>
+    <tr><td>Kraft cardboard shell, flat front, top cap that overhangs</td><td>Cardboard-coloured solid shell with an overhanging top cap (Panels: Solid)</td><td>Matched</td></tr>
+    <tr><td>Narrow, deep cup window on the upper front, with a small cup on its floor</td><td>Cup window 0.32 m wide on the upper front, platform at 0.80 m, spout at 1.10 m</td><td>Matched</td></tr>
+    <tr><td>Lower jar opening on the front, open at the right edge, a ledge under it, jar standing in it</td><td>One L-shaped opening 0.44 m high wraps the front-right corner (front 0.52 m, side 0.42 m), with a ledge. The jar stands there only while it is loaded</td><td>Partly: in use the jar has risen behind the front</td></tr>
+    <tr><td>Body about 2.1 times taller than wide</td><td>1.70 m high x 0.70 m wide, about 2.4 times (was 3.4)</td><td>Closer; cannot be stockier without losing the constant head</td></tr>
+    <tr><td>Cup window at 57 to 85% of the body height</td><td>Cup window at 39 to 69% of the body height</td><td>Differs: the jar must pass behind it</td></tr>
+    <tr><td>Jar stays low, near the floor</td><td>The jar rides up on springs as it empties</td><td>Differs: a siphon cannot run uphill</td></tr>
+    </tbody>
+  </table></div>
+  <h2>Dimensions used</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Item</th><th>Sketch</th><th>Used here</th><th>Why</th></tr></thead>
+    <tbody>
+    <tr><td>Width</td><td>0.45 m</td><td>0.70 m</td><td>The prototype is stocky; room for the 0.34 m jar, a 0.09 m level strip, rails and walls.</td></tr>
+    <tr><td>Depth</td><td>0.45 m</td><td>0.62 m</td><td>0.235 m cup alcove in front, 0.34 m jar behind it, plus walls.</td></tr>
+    <tr><td>Total height</td><td>1.35 m</td><td>1.70 m</td><td>The siphon crest is at 1.60 m, above the jar at its highest.</td></tr>
+    <tr><td>Cup platform</td><td>0.70 m</td><td>0.80 m</td><td>An adult can stand nearly upright. Wheelchair users reach it by leaning a little; the limit is 1.22 m.</td></tr>
+    <tr><td>Spout</td><td>top of alcove</td><td>1.10 m</td><td>0.30 m above the platform: a 0.27 m bottle fits with 30 mm to spare.</td></tr>
+    <tr><td>Water surface</td><td>-</td><td>1.22 m</td><td>The siphon needs the surface above the spout, here by 120 mm.</td></tr>
+    <tr><td>Jar</td><td>tall canister</td><td>0.34 m dia x 0.30 m, 20 L</td><td>A wide, low jar keeps the station under 1.7 m. A tall 0.27 m jar would need 1.9 m.</td></tr>
+    <tr><td>Jar loading</td><td>lower right corner</td><td>0.10 m, corner door</td><td>The pedal drops the cradle to door level so a 20 kg jar is slid in low, then the cradle rises to 1.00 m.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Heights are real in metres. The platform travel is drawn 5 times larger so it can be seen, and the tube is drawn slightly thicker than 8 mm. The person is a see-through mannequin so the station stays visible. Flow uses the same loss factor as the 2D simulation, so the numbers match it.</p>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id);};
+
+/* ---------- design constants (metres, kg) ---------- */
+var G=9.81,JD=0.34,JH=0.30,A=Math.PI*JD*JD/4,SURF0=1.22,SPOUT=1.10,PLAT=0.80,TRAY=0.71,STOPB=1.185,INLET=1.199,HT=1.70,VALH=1.37,ALC_B=0.66,ALC_T=1.18;
+var CREST=1.60,BORE=0.008,LOSS=0.4,KP=490,STOPT=0.005,TRIP_G=3,TEST_L=1000,DRAIN_CAP=1000,EXAG=5;
+var JX=0.395,JY=0.42,SY=0.14,PEDAL_Y=0.045,ARM=0.64,CX=0.35,DC=0.31,WD=0.70,DEP=0.62,AWH=0.16;
+var KRAFT=[0.78,0.62,0.42],KRAFT2=[0.70,0.55,0.37];
+var CUPS={
+ mug:{n:'Mug',m:0.30,cap:350,r:0.04,h:0.10,col:[0.79,0.48,0.35]},
+ paper:{n:'Paper cup',m:0.005,cap:300,r:0.035,h:0.11,col:[0.85,0.83,0.78]},
+ flask:{n:'Steel flask',m:0.50,cap:600,r:0.04,h:0.25,col:[0.55,0.56,0.58]},
+ tall:{n:'Tall bottle',m:0.05,cap:1000,r:0.037,h:0.27,col:[0.36,0.56,0.71]},
+ glass:{n:'Small glass',m:0.15,cap:150,r:0.035,h:0.10,col:[0.62,0.76,0.85]}
+};
+
+/* ---------- state ---------- */
+var S={V:20,cupKey:'mug',cup:null,user:'stand',primed:true,tray:0,floor:0,total:0,lastTest:0,wheel:0,
+  speed:4,panels:1,labels:1,swap:null,bulb:null,valveA:0,pedalA:0,pp:0,auto:false,autoT:0,
+  served:0,msg:'',dims:1,view:{az:0.95,el:0.2,dist:4.0},flowing:false,Q:0,reachT:0,hand:null};
+
+/* ---------- math ---------- */
+function ident(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);}
+function mul(a,b){var o=new Float32Array(16);for(var i=0;i<4;i++)for(var j=0;j<4;j++){var s=0;for(var k=0;k<4;k++)s+=a[k*4+j]*b[i*4+k];o[i*4+j]=s;}return o;}
+function rotX(t){var c=Math.cos(t),s=Math.sin(t);return new Float32Array([1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1]);}
+function rotY(t){var c=Math.cos(t),s=Math.sin(t);return new Float32Array([c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1]);}
+function rotZ(t){var c=Math.cos(t),s=Math.sin(t);return new Float32Array([c,s,0,0,-s,c,0,0,0,0,1,0,0,0,0,1]);}
+function model(x,y,z,sx,sy,sz,rot){
+  var M=new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,x,y,z,1]);
+  if(rot){
+    var R=ident();
+    if(rot[2])R=mul(rotZ(rot[2]),R);
+    if(rot[1])R=mul(rotY(rot[1]),R);
+    if(rot[0])R=mul(rotX(rot[0]),R);
+    var T=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1]);
+    var Sm=new Float32Array([sx,0,0,0,0,sy,0,0,0,0,sz,0,0,0,0,1]);
+    M=mul(T,mul(R,Sm));
+  }
+  return M;
+}
+function persp(fovy,asp,n,f){var t=1/Math.tan(fovy/2),o=new Float32Array(16);o[0]=t/asp;o[5]=t;o[10]=(f+n)/(n-f);o[11]=-1;o[14]=2*f*n/(n-f);return o;}
+function lookAt(e,c,u){
+  var zx=e[0]-c[0],zy=e[1]-c[1],zz=e[2]-c[2],l=Math.hypot(zx,zy,zz);zx/=l;zy/=l;zz/=l;
+  var xx=u[1]*zz-u[2]*zy,xy=u[2]*zx-u[0]*zz,xz=u[0]*zy-u[1]*zx;l=Math.hypot(xx,xy,xz);xx/=l;xy/=l;xz/=l;
+  var yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;
+  return new Float32Array([xx,yx,zx,0,xy,yy,zy,0,xz,yz,zz,0,-(xx*e[0]+xy*e[1]+xz*e[2]),-(yx*e[0]+yy*e[1]+yz*e[2]),-(zx*e[0]+zy*e[1]+zz*e[2]),1]);
+}
+function normalMat(M){
+  var m00=M[0],m10=M[1],m20=M[2],m01=M[4],m11=M[5],m21=M[6],m02=M[8],m12=M[9],m22=M[10];
+  var C00=m11*m22-m12*m21,C01=-(m10*m22-m12*m20),C02=m10*m21-m11*m20;
+  var C10=-(m01*m22-m02*m21),C11=m00*m22-m02*m20,C12=-(m00*m21-m01*m20);
+  var C20=m01*m12-m02*m11,C21=-(m00*m12-m02*m10),C22=m00*m11-m01*m10;
+  return new Float32Array([C00,C10,C20,C01,C11,C21,C02,C12,C22]);
+}
+
+/* ---------- WebGL ---------- */
+var cv=$('cv'),gl=cv.getContext('webgl',{antialias:true,alpha:false})||cv.getContext('experimental-webgl');
+if(!gl){$('status').textContent='This browser cannot draw the 3D view (WebGL is unavailable).';return;}
+function sh(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+var prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,'attribute vec3 aP;attribute vec3 aN;uniform mat4 uM;uniform mat4 uVP;uniform mat3 uNM;varying vec3 vN;varying vec3 vW;void main(){vec4 w=uM*vec4(aP,1.0);vW=w.xyz;vN=uNM*aN;gl_Position=uVP*w;}'));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,'precision mediump float;varying vec3 vN;varying vec3 vW;uniform vec4 uC;uniform vec3 uEye;uniform float uUnlit;void main(){vec3 n=normalize(vN);vec3 L1=normalize(vec3(0.5,0.9,0.6));vec3 L2=normalize(vec3(-0.6,0.3,0.5));float d=max(dot(n,L1),0.0)*0.62+max(dot(n,L2),0.0)*0.25+0.38;vec3 V=normalize(uEye-vW);vec3 H=normalize(L1+V);float s=pow(max(dot(n,H),0.0),40.0)*0.22;vec3 c=uC.rgb*d+vec3(s);if(uUnlit>0.5)c=uC.rgb;gl_FragColor=vec4(c,uC.a);}'));
+gl.bindAttribLocation(prog,0,'aP');gl.bindAttribLocation(prog,1,'aN');
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+var uM=gl.getUniformLocation(prog,'uM'),uVP=gl.getUniformLocation(prog,'uVP'),uNM=gl.getUniformLocation(prog,'uNM'),uC=gl.getUniformLocation(prog,'uC'),uEye=gl.getUniformLocation(prog,'uEye'),uUnlit=gl.getUniformLocation(prog,'uUnlit');
+gl.enableVertexAttribArray(0);gl.enableVertexAttribArray(1);
+
+function mk(P,N,I,E){
+  var m={n:I.length};
+  m.pb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,m.pb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(P),gl.STATIC_DRAW);
+  m.nb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,m.nb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(N),gl.STATIC_DRAW);
+  m.ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(I),gl.STATIC_DRAW);
+  if(E){m.eb=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.eb);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(E),gl.STATIC_DRAW);m.en=E.length;}
+  return m;
+}
+function boxMesh(){
+  var P=[],N=[],I=[];
+  var F=[[[0,0,1],[1,0,0],[0,1,0]],[[0,0,-1],[-1,0,0],[0,1,0]],[[1,0,0],[0,0,-1],[0,1,0]],[[-1,0,0],[0,0,1],[0,1,0]],[[0,1,0],[1,0,0],[0,0,-1]],[[0,-1,0],[1,0,0],[0,0,1]]];
+  F.forEach(function(f){
+    var n=f[0],u=f[1],v=f[2],b=P.length/3;
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(function(q){
+      P.push(0.5*(n[0]+q[0]*u[0]+q[1]*v[0]),0.5*(n[1]+q[0]*u[1]+q[1]*v[1]),0.5*(n[2]+q[0]*u[2]+q[1]*v[2]));
+      N.push(n[0],n[1],n[2]);
+    });
+    I.push(b,b+1,b+2,b,b+2,b+3);
+  });
+  var cp=[[-.5,-.5,-.5],[.5,-.5,-.5],[.5,.5,-.5],[-.5,.5,-.5],[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]];
+  var EP=[],EN=[];cp.forEach(function(c){EP.push(c[0],c[1],c[2]);EN.push(0,1,0);});
+  var E=[0,1,1,2,2,3,3,0,4,5,5,6,6,7,7,4,0,4,1,5,2,6,3,7];
+  var m=mk(P,N,I);
+  m.lpb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,m.lpb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(EP),gl.STATIC_DRAW);
+  m.lnb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,m.lnb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(EN),gl.STATIC_DRAW);
+  m.eb=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.eb);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(E),gl.STATIC_DRAW);m.en=E.length;
+  return m;
+}
+function cylMesh(seg){
+  var P=[],N=[],I=[],k,a;
+  for(k=0;k<=seg;k++){a=k/seg*Math.PI*2;var c=Math.cos(a),s=Math.sin(a);P.push(c,-.5,s,c,.5,s);N.push(c,0,s,c,0,s);}
+  for(k=0;k<seg;k++){var b=k*2;I.push(b,b+1,b+3,b,b+3,b+2);}
+  [-1,1].forEach(function(sg){
+    var b=P.length/3;P.push(0,sg*.5,0);N.push(0,sg,0);
+    for(k=0;k<=seg;k++){a=k/seg*Math.PI*2;P.push(Math.cos(a),sg*.5,Math.sin(a));N.push(0,sg,0);}
+    for(k=0;k<seg;k++)I.push(b,b+1+k,b+2+k);
+  });
+  return mk(P,N,I);
+}
+function sphereMesh(la,lo){
+  var P=[],N=[],I=[],i,j;
+  for(i=0;i<=la;i++){var t=i/la*Math.PI;for(j=0;j<=lo;j++){var p=j/lo*Math.PI*2;var x=Math.sin(t)*Math.cos(p),y=Math.cos(t),z=Math.sin(t)*Math.sin(p);P.push(x,y,z);N.push(x,y,z);}}
+  for(i=0;i<la;i++)for(j=0;j<lo;j++){var a=i*(lo+1)+j,b=a+lo+1;I.push(a,b,a+1,a+1,b,b+1);}
+  return mk(P,N,I);
+}
+function tubeMesh(path,r,rad){
+  var P=[],N=[],I=[],n=path.length,i,k;
+  var T=[];for(i=0;i<n;i++){var a=path[Math.max(0,i-1)],b=path[Math.min(n-1,i+1)];var tx=b[0]-a[0],ty=b[1]-a[1],tz=b[2]-a[2],l=Math.hypot(tx,ty,tz);T.push([tx/l,ty/l,tz/l]);}
+  var ref=Math.abs(T[0][0])<0.9?[1,0,0]:[0,1,0];
+  var Nn=[T[0][1]*ref[2]-T[0][2]*ref[1],T[0][2]*ref[0]-T[0][0]*ref[2],T[0][0]*ref[1]-T[0][1]*ref[0]];
+  var l0=Math.hypot(Nn[0],Nn[1],Nn[2]);Nn=[Nn[0]/l0,Nn[1]/l0,Nn[2]/l0];
+  for(i=0;i<n;i++){
+    var t=T[i],d=Nn[0]*t[0]+Nn[1]*t[1]+Nn[2]*t[2];
+    Nn=[Nn[0]-d*t[0],Nn[1]-d*t[1],Nn[2]-d*t[2]];var ll=Math.hypot(Nn[0],Nn[1],Nn[2]);Nn=[Nn[0]/ll,Nn[1]/ll,Nn[2]/ll];
+    var Bn=[t[1]*Nn[2]-t[2]*Nn[1],t[2]*Nn[0]-t[0]*Nn[2],t[0]*Nn[1]-t[1]*Nn[0]];
+    for(k=0;k<rad;k++){var an=k/rad*Math.PI*2,c=Math.cos(an),s=Math.sin(an);
+      var nx=c*Nn[0]+s*Bn[0],ny=c*Nn[1]+s*Bn[1],nz=c*Nn[2]+s*Bn[2];
+      P.push(path[i][0]+r*nx,path[i][1]+r*ny,path[i][2]+r*nz);N.push(nx,ny,nz);}
+  }
+  for(i=0;i<n-1;i++)for(k=0;k<rad;k++){var k2=(k+1)%rad,a=i*rad+k,b=i*rad+k2,c2=(i+1)*rad+k,d2=(i+1)*rad+k2;I.push(a,b,c2,b,d2,c2);}
+  return mk(P,N,I);
+}
+function coilMesh(R,wire,turns){
+  var path=[],n=Math.round(turns*14),i;
+  for(i=0;i<=n;i++){var u=i/n,a=u*turns*Math.PI*2;path.push([R*Math.cos(a),u-0.5,R*Math.sin(a)]);}
+  return tubeMesh(path,wire,6);
+}
+var MESH={box:boxMesh(),cyl:cylMesh(28),sph:sphereMesh(10,14),coil:coilMesh(0.03,0.0035,8)};
+
+/* ---------- siphon path (model coords: x, height, depth-from-front) ---------- */
+function roundedPath(pts,r,n){
+  var out=[pts[0].slice()];
+  for(var i=1;i<pts.length-1;i++){
+    var p0=pts[i-1],p1=pts[i],p2=pts[i+1];
+    var d1=[p0[0]-p1[0],p0[1]-p1[1],p0[2]-p1[2]],d2=[p2[0]-p1[0],p2[1]-p1[1],p2[2]-p1[2]];
+    var l1=Math.hypot(d1[0],d1[1],d1[2]),l2=Math.hypot(d2[0],d2[1],d2[2]);
+    var a=[p1[0]+d1[0]/l1*r,p1[1]+d1[1]/l1*r,p1[2]+d1[2]/l1*r],b=[p1[0]+d2[0]/l2*r,p1[1]+d2[1]/l2*r,p1[2]+d2[2]/l2*r];
+    for(var k=0;k<=n;k++){var t=k/n,u=1-t;out.push([u*u*a[0]+2*u*t*p1[0]+t*t*b[0],u*u*a[1]+2*u*t*p1[1]+t*t*b[1],u*u*a[2]+2*u*t*p1[2]+t*t*b[2]]);}
+  }
+  out.push(pts[pts.length-1].slice());
+  return out;
+}
+function W(x,h,d){return [x-CX,h,DC-d];}
+var PATHM=roundedPath([[JX,INLET,JY],[JX,CREST,JY],[JX,CREST,SY],[JX,SPOUT+0.02,SY]],0.05,8);
+var PATHW=PATHM.map(function(p){return W(p[0],p[1],p[2]);});
+MESH.hose=tubeMesh(PATHW,0.007,10);
+MESH.hw=tubeMesh(PATHW,0.0045,8);
+var CUM=[0],PLEN=0;
+for(var qi=1;qi<PATHW.length;qi++){PLEN+=Math.hypot(PATHW[qi][0]-PATHW[qi-1][0],PATHW[qi][1]-PATHW[qi-1][1],PATHW[qi][2]-PATHW[qi-1][2]);CUM.push(PLEN);}
+function pathAt(s){
+  var d=s*PLEN,i=1;while(i<CUM.length-1&&CUM[i]<d)i++;
+  var t=(d-CUM[i-1])/(CUM[i]-CUM[i-1]||1),a=PATHW[i-1],b=PATHW[i];
+  return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+}
+
+/* ---------- vectors ---------- */
+function add3(a,b){return [a[0]+b[0],a[1]+b[1],a[2]+b[2]];}
+function sub3(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+function mul3(a,k){return [a[0]*k,a[1]*k,a[2]*k];}
+function dot3(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function len3(a){return Math.hypot(a[0],a[1],a[2]);}
+function cross3(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function norm3(a){var l=len3(a)||1;return [a[0]/l,a[1]/l,a[2]/l];}
+function lerp3(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+/* two-bone IK: returns elbow/knee joint and the (possibly clamped) end point */
+function ik(sh,tg,L1,L2,hint){
+  var d=sub3(tg,sh),dl=len3(d),mx=L1+L2-1e-4,need=dl;
+  if(dl>mx){d=mul3(d,mx/dl);dl=mx;tg=add3(sh,d);}
+  if(dl<0.05){dl=0.05;}
+  var u=mul3(d,1/dl),a=(L1*L1-L2*L2+dl*dl)/(2*dl),h=Math.sqrt(Math.max(0,L1*L1-a*a));
+  var hh=sub3(hint,mul3(u,dot3(hint,u)));hh=norm3(hh);
+  return {joint:add3(add3(sh,mul3(u,a)),mul3(hh,h)),end:tg,need:need};
+}
+
+/* ---------- scene helpers ---------- */
+var items=[];
+function add(m,cx,cy,cz,sx,sy,sz,col,a,edge,rot){
+  items.push({m:m,M:model(cx,cy,cz,sx,sy,sz,rot),c:col,a:(a==null?1:a),e:!!edge,p:[cx,cy,cz]});
+}
+function B(x,h,d,sx,sh,sd,col,a,edge,rot){var w=W(x,h,d);add(MESH.box,w[0],w[1],w[2],sx,sh,sd,col,a,edge,rot);}
+function CY(x,h,d,r,len,col,a){var w=W(x,h,d);add(MESH.cyl,w[0],w[1],w[2],r,len,r,col,a);}
+function CYX(x,h,d,r,len,col,a){var w=W(x,h,d);add(MESH.cyl,w[0],w[1],w[2],r,len,r,col,a,false,[0,0,Math.PI/2]);}
+function CYZ(x,h,d,r,len,col,a){var w=W(x,h,d);add(MESH.cyl,w[0],w[1],w[2],r,len,r,col,a,false,[Math.PI/2,0,0]);}
+function SPH(x,h,d,r,col,a){var w=W(x,h,d);add(MESH.sph,w[0],w[1],w[2],r,r,r,col,a);}
+function SPHv(p,r,col,a){SPH(p[0],p[1],p[2],r,col,a);}
+function COIL(x,h0,h1,d,k,col){var w=W(x,(h0+h1)/2,d);add(MESH.coil,w[0],w[1],w[2],k,Math.max(0.01,h1-h0),k,col,1);}
+/* cylinder between two model-space points */
+function SEG(p0,p1,r,col,a){
+  var q0=W(p0[0],p0[1],p0[2]),q1=W(p1[0],p1[1],p1[2]);
+  var dv=sub3(q1,q0),L=len3(dv)||1e-5,y=mul3(dv,1/L);
+  var ref=Math.abs(y[1])<0.9?[0,1,0]:[1,0,0];
+  var x=norm3(cross3(ref,y)),z=cross3(y,x);
+  var mid=mul3(add3(q0,q1),0.5);
+  var M=new Float32Array([x[0]*r,x[1]*r,x[2]*r,0,y[0]*L,y[1]*L,y[2]*L,0,z[0]*r,z[1]*r,z[2]*r,0,mid[0],mid[1],mid[2],1]);
+  items.push({m:MESH.cyl,M:M,c:col,a:(a==null?1:a),e:false,p:mid});
+}
+
+var BODY=[0.94,0.95,0.96],STEEL=[0.60,0.62,0.66],DARK=[0.30,0.31,0.34],LIGHT=[0.82,0.84,0.87],WATERC=[0.20,0.52,0.88],HOSE=[0.86,0.93,0.97],RED=[0.78,0.22,0.20],GRN=[0.28,0.62,0.25],AMB=[0.92,0.62,0.12],WHITE=[0.96,0.97,0.98];
+var SKIN=[0.84,0.70,0.58],SHIRT=[0.30,0.45,0.62],PANTS=[0.28,0.30,0.36],CHAIR=[0.22,0.24,0.28];
+var edgeCol=[0.15,0.2,0.24],floorCol=[0.83,0.87,0.89];
+
+/* ---------- physics ---------- */
+function wlen(V){return V/(1000*A);}
+function baseAt(V){return Math.min(STOPB,SURF0-wlen(V));}
+function surfAt(V){return Math.min(SURF0,baseAt(V)+wlen(V));}
+function flowAt(head){return head>0.002?LOSS*Math.sqrt(2*G*head)*Math.PI*Math.pow(BORE/2,2)*1e6:0;}
+function cupBrim(c){var d=CUPS[c.key];return Math.PI*d.r*d.r*d.h*1e6;}
+function swapGeo(t){
+  return {
+    low:t<0.9?t/0.9:(t<4.3?1:Math.max(0,1-(t-4.3)/1.0)),
+    door:t<0.9?t/0.9:(t<4.3?1:Math.max(0,1-(t-4.3)/0.5)),
+    oldX:t<0.9?0:(t<2.3?(t-0.9)/1.4:1),
+    oldA:t<2.3?1:(t<2.9?1-(t-2.3)/0.6:0),
+    newX:t<2.9?1:(t<4.3?1-(t-2.9)/1.4:0),
+    newOn:t>=2.9
+  };
+}
+function swapMsg(t){
+  if(t<0.9)return 'Jar change 1/5: the pedal is pressed. The cradle drops to door level and the corner door swings open.';
+  if(t<2.3)return 'Jar change 2/5: the empty jar slides out sideways through the corner door.';
+  if(t<2.9)return 'Jar change 3/5: the old jar is carried away.';
+  if(t<4.3)return 'Jar change 4/5: a full 20 L jar slides in through the door onto the cradle.';
+  if(t<5.3)return 'Jar change 5/5: the door closes and the cradle rises to its working height.';
+  return 'The siphon lost its prime when the jar moved. One squeeze of the bulb fills it again.';
+}
+function loadG(){var c=S.cup;if(!c||c.state!=='on')return 0;return CUPS[c.key].m*1000+c.ml;}
+function deflect(){return Math.min(STOPT,loadG()/1000*G/KP);}
+function shutterOpen(){return loadG()>=TRIP_G;}
+function valveCmd(){return shutterOpen()&&!S.swap;}
+function canFlow(){return valveCmd()&&S.primed&&S.V>0.003;}
+
+/* ---------- cup path and person ---------- */
+function cupKeys(){
+  var base=PLAT-deflect();
+  if(S.user==='none')return [[JX,PLAT+0.28,SY],[JX,PLAT+0.28,SY],[JX,PLAT+0.03,SY],[JX,base,SY]];
+  var st=S.user==='stand';
+  return [[JX,st?0.85:0.75,st?-0.28:-0.42],[JX,PLAT+0.08,-0.16],[JX,PLAT+0.03,SY],[JX,base,SY]];
+}
+function cupPos(c){
+  var K=cupKeys(),w=S.user==='none'?[0.001,0.85,0.15]:[0.4,0.35,0.25],s=Math.max(0,Math.min(1,c.u)),seg=0;
+  while(seg<2&&s>w[seg]){s-=w[seg];seg++;}
+  var t=Math.min(1,s/w[seg]);
+  return lerp3(K[seg],K[seg+1],t);
+}
+function bodyPose(t){
+  var st=S.user==='stand',hipH,phi,hd;
+  if(st){hipH=0.90-0.03*t;phi=0.04+0.30*t;hd=-0.40;}
+  else{hipH=0.55;phi=0.05+0.45*t;hd=-0.76;}
+  var dir=[0,Math.cos(phi),Math.sin(phi)],hip=[JX,hipH,hd];
+  var shc=add3(hip,mul3(dir,0.50));
+  return {hip:hip,dir:dir,shc:shc,head:add3(hip,mul3(dir,0.72)),shR:[JX+0.19,shc[1],shc[2]],shL:[JX-0.19,shc[1],shc[2]]};
+}
+function gripTarget(c){var p=cupPos(c),d=CUPS[c.key];return [p[0],p[1]+d.h*0.5,p[2]-d.r-0.035];}
+function reachNeed(){
+  var b=bodyPose(1),d=CUPS[S.cupKey],tg=[JX,PLAT+d.h*0.5,SY-d.r-0.035];
+  return len3(sub3(tg,b.shR));
+}
+function restHand(p){return add3(p.shR,[0,-0.55,0.03]);}
+
+function placeCup(){
+  if(S.cup&&S.cup.state!=='out')return;
+  if(S.cup&&S.cup.state==='out'){S.cup.state='in';return;}
+  S.cup={key:S.cupKey,ml:0,u:0,state:'in'};
+}
+function removeCup(){
+  var c=S.cup;if(!c||c.state==='out')return;
+  if(c.state==='on')S.served=c.ml;
+  c.state='out';
+}
+function startSwap(){if(!S.swap){removeCup();S.swap={t:0,done:false};}}
+function startBulb(){if(!S.bulb)S.bulb={t:0};}
+
+function step(rdt){
+  var dt=rdt*S.speed,c=S.cup;
+  var dur=S.user==='none'?1.0:2.8;
+  if(c){
+    if(c.state==='in'){c.u+=rdt/dur;if(c.u>=1){c.u=1;c.state='on';}}
+    else if(c.state==='out'){c.u-=rdt/dur;if(c.u<=0){S.cup=null;c=null;}}
+  }
+  /* person: lean follows the cup, hand follows the grip */
+  var moving=c&&(c.state==='in'||c.state==='out');
+  var tT=moving?Math.min(1,c.u*1.6):0;
+  S.reachT+=(tT-S.reachT)*Math.min(1,rdt*5);
+  if(S.user!=='none'){
+    var p=bodyPose(S.reachT),want=moving?gripTarget(c):restHand(p);
+    S.hand=S.hand?lerp3(S.hand,want,Math.min(1,rdt*10)):want;
+  }
+  /* jar swap */
+  if(S.swap){
+    var sw=S.swap;sw.t+=rdt;var t=sw.t;
+    if(sw.v0==null)sw.v0=S.V;
+    S.pedalA=t<0.8?t/0.8:(t<4.8?1:Math.max(0,1-(t-4.8)/0.5));
+    if(t>=2.9&&!sw.done){sw.done=true;S.V=20;S.primed=false;}
+    if(t>5.3&&!sw.bulbed){sw.bulbed=true;S.bulb={t:0};}
+    if(t>6.1){S.swap=null;S.pedalA=0;}
+  }
+  if(S.bulb){S.bulb.t+=rdt;if(S.bulb.t>0.7){S.primed=true;S.bulb=null;}}
+  /* flow */
+  var flowing=false,Q=0;
+  var head=surfAt(S.V)-SPOUT;
+  c=S.cup;
+  if(c&&canFlow()){
+    Q=flowAt(head);
+    if(Q>0){
+      flowing=true;
+      var dml=Math.min(Q*dt,S.V*1000);
+      S.V-=dml/1000;S.total+=dml/1000;S.wheel+=dml/1000*Math.PI;
+      c.ml+=dml;
+      var br=cupBrim(c);
+      if(c.ml>br){S.floor+=c.ml-br;c.ml=br;}
+      S.pp=(S.pp+(Q*1e-6/(Math.PI*0.004*0.004))*dt/PLEN)%1;
+    }
+  }
+  S.flowing=flowing;S.Q=Q;
+  S.valveA+=((valveCmd()?1:0)-S.valveA)*Math.min(1,rdt*8);
+  /* auto demo */
+  if(S.auto){
+    S.autoT+=rdt;
+    if(!S.cup&&!S.swap&&S.autoT>0.8){
+      if(S.V*1000<CUPS[S.cupKey].cap+20)startSwap();else placeCup();
+      S.autoT=0;
+    }else if(S.cup&&S.cup.state==='on'&&S.cup.ml>=CUPS[S.cup.key].cap){removeCup();S.autoT=0;}
+  }
+}
+
+/* ---------- scene: the ideal design as first drawn ---------- */
+function drawUser(){
+  if(S.user==='none')return;
+  var p=bodyPose(S.reachT),al=0.6,st=S.user==='stand',tr=0;
+  /* wheelchair */
+  if(!st){
+    var hd=p.hip[2];
+    B(JX,0.50,hd+0.02,0.44,0.04,0.44,CHAIR,1,false);
+    B(JX,0.78,hd-0.20,0.44,0.50,0.03,CHAIR,0.9,false);
+    [-1,1].forEach(function(sg){
+      B(JX+sg*0.23,0.68,hd,0.04,0.03,0.34,CHAIR,1,false);
+      CYX(JX+sg*0.30,0.31,hd-0.02,0.31,0.035,[0.16,0.17,0.19],1);
+      CYX(JX+sg*0.30,0.31,hd-0.02,0.27,0.04,STEEL,0.35);
+      CYX(JX+sg*0.30,0.31,hd-0.02,0.04,0.06,STEEL,1);
+      SPH(JX+sg*0.20,0.065,hd+0.46,0.065,[0.16,0.17,0.19],1);
+      SEG([JX+sg*0.20,0.50,hd+0.22],[JX+sg*0.20,0.12,hd+0.62],0.012,CHAIR,1);
+    });
+    B(JX,0.12,hd+0.66,0.34,0.02,0.17,CHAIR,1,false);
+  }
+  /* torso, pelvis, neck, head */
+  SEG([JX-0.09,p.hip[1],p.hip[2]],[JX+0.09,p.hip[1],p.hip[2]],0.085,PANTS,al);
+  SEG(p.hip,p.shc,0.13,SHIRT,al);
+  SEG(p.shL,p.shR,0.06,SHIRT,al);
+  SEG(p.shc,add3(p.hip,mul3(p.dir,0.62)),0.045,SKIN,al);
+  SPHv(p.head,0.095,SKIN,al);
+  /* legs */
+  [-1,1].forEach(function(sg){
+    var hj=[JX+sg*0.09,p.hip[1],p.hip[2]];
+    var ank=st?[JX+sg*0.09,0.09,p.hip[2]+0.03]:[JX+sg*0.09,0.17,p.hip[2]+0.60];
+    var r=ik(hj,ank,0.43,0.43,[0,0,1]);
+    SEG(hj,r.joint,0.065,PANTS,al);SEG(r.joint,r.end,0.05,PANTS,al);
+    B(r.end[0],r.end[1]-0.05,r.end[2]+0.06,0.09,0.06,0.25,DARK,1,false);
+  });
+  /* arms: right grips the cup, left hangs */
+  var hR=S.hand||restHand(p),aR=ik(p.shR,hR,0.30,0.34,[0.4,-1,-0.3]);
+  SEG(p.shR,aR.joint,0.045,SHIRT,al);SEG(aR.joint,aR.end,0.038,SKIN,al);SPHv(aR.end,0.04,SKIN,1);
+  var hL=add3(p.shL,[-0.03,-0.58,0.03]),aL=ik(p.shL,hL,0.30,0.34,[-0.4,-1,-0.3]);
+  SEG(p.shL,aL.joint,0.045,SHIRT,al);SEG(aL.joint,aL.end,0.038,SKIN,al);SPHv(aL.end,0.04,SKIN,1);
+}
+
+function buildScene(){
+  items=[];
+  var sol=S.panels===0,pa=sol?1:0.16,showPanels=S.panels!==2;
+  var c=S.cup,base=baseAt(S.V),wl=wlen(S.V),surf=surfAt(S.V);
+  var lowF=0,gz=null;
+  if(S.swap){gz=swapGeo(S.swap.t);lowF=gz.low;}
+  var tr=0.012,defl=deflect(),pdz=defl*EXAG,AXc=(0.09+WD)/2,aw=WD-0.09;
+  var jb=base-(base-0.10)*lowF;
+
+  /* floor and plinth */
+  add(MESH.box,0,-0.006,DC,2.4,0.012,2.6,floorCol,1,false);
+  B(CX,0.03,DC,WD-0.02,0.06,DEP-0.02,DARK,1,true);
+
+  /* cabinet panels (glass, stainless) with the cup alcove high on the front */
+  if(showPanels){
+    var PN=sol?KRAFT:STEEL,CAPC=sol?KRAFT2:DARK,x0=JX-AWH,x1=JX+AWH,ax=(x0+x1)/2,aw2=x1-x0,bx0=JX-0.18,bx1=WD;
+    /* prototype look: kraft-board shell, narrow cup window on the upper front, jar window low on the front, top cap */
+    B(tr/2,HT/2,DC,tr,HT,DEP,PN,pa,true);
+    /* right wall: opening 0.06-0.50 m for depth 0 to 0.42 m, so the front window and the side opening form one L */
+    B(WD-tr/2,(0.50+HT)/2,DC,tr,HT-0.50,DEP,PN,pa,true);
+    B(WD-tr/2,0.03,DC,tr,0.06,DEP,PN,pa,true);
+    B(WD-tr/2,0.28,0.42+(DEP-0.42)/2,tr,0.44,DEP-0.42,PN,pa,true);
+    B(CX,HT/2,DEP-tr/2,WD,HT,tr,PN,pa,true);
+    B(CX,HT-tr/2,DC,WD,tr,DEP,PN,pa,true);
+    B(0.045,HT/2,tr/2,0.09,HT,tr,PN,pa,true);
+    B((0.09+WD)/2,(ALC_T+HT)/2,tr/2,WD-0.09,HT-ALC_T,tr,PN,pa,true);
+    B((0.09+x0)/2,(ALC_B+ALC_T)/2,tr/2,x0-0.09,ALC_T-ALC_B,tr,PN,pa,true);
+    B((x1+WD)/2,(ALC_B+ALC_T)/2,tr/2,WD-x1,ALC_T-ALC_B,tr,PN,pa,true);
+    B((0.09+WD)/2,(0.50+ALC_B)/2,tr/2,WD-0.09,ALC_B-0.50,tr,PN,pa,true);
+    B((0.09+WD)/2,0.03,tr/2,WD-0.09,0.06,tr,PN,pa,true);
+    B((0.09+bx0)/2,0.28,tr/2,bx0-0.09,0.44,tr,PN,pa,true);
+    B(ax,ALC_T,0.1175,aw2,tr,0.235,PN,pa,true);
+    B(ax,(ALC_B+ALC_T)/2,0.235,aw2,ALC_T-ALC_B,tr,PN,pa,true);
+    B(x0,(ALC_B+ALC_T)/2,0.1175,tr,ALC_T-ALC_B,0.235,PN,pa,true);
+    B(x1,(ALC_B+ALC_T)/2,0.1175,tr,ALC_T-ALC_B,0.235,PN,pa,true);
+    B(ax,ALC_B,0.1175,aw2,tr,0.235,PN,pa,true);
+    B((bx0+WD)/2,0.065,-0.012,WD-bx0,0.014,0.03,CAPC,1,true);
+    B(WD+0.012,0.065,0.21,0.03,0.014,0.42,CAPC,1,true);
+    B(CX,HT+0.01,DC,WD+0.03,0.03,DEP+0.03,CAPC,1,true);
+  }
+  /* corner door: the jar is loaded sideways at the lower right, with the cradle pedalled down */
+  var dAng=gz?gz.door*1.45:0,dc=[0.88,0.94,0.98],hz=DC-(JY-0.19);
+  add(MESH.box,WD-CX+0.003-0.19*Math.sin(dAng)*0+(-0.19*Math.sin(-dAng))*1,0.27,hz-0.19*Math.cos(dAng),0.004,0.40,0.38,dc,sol?1:0.4,true,[0,-dAng,0]);
+  if(!gz)CY(WD+0.014,0.27,JY-0.17,0.006,0.14,STEEL,1);
+
+  /* pedal */
+  B(JX,PEDAL_Y,-0.05,0.14,0.02,0.12,DARK,1,true,[0.32*S.pedalA,0,0]);
+
+  /* cradle: rails, floor plate, springs, stop lugs */
+  [JX-0.19,JX+0.19].forEach(function(x){CY(x,0.79,JY,0.006,1.42,STEEL,1);B(x,STOPB-0.02,JY,0.026,0.012,0.026,AMB,1,false);});
+  CY(JX,0.08,JY,0.18,0.016,DARK,1);
+  CY(JX,(0.088+jb-0.21)/2,JY,0.02,Math.max(0.01,jb-0.21-0.088),DARK,1);
+  CY(JX,jb-0.21,JY,0.18,0.01,DARK,1);
+  [JX-0.08,JX+0.08].forEach(function(x){COIL(x,jb-0.20,jb-0.012,JY,1.1,STEEL);});
+  CY(JX,jb-0.006,JY,0.18,0.012,STEEL,1);
+  /* jar, water, cap */
+  function drawJar(x,w,a){
+    CY(x,jb+JH/2,JY,JD/2,JH,[0.85,0.92,0.97],0.2*a);
+    if(w>0.002)CY(x,jb+0.005+w/2,JY,JD/2-0.004,w,WATERC,0.6*a);
+    CY(x,jb+JH+0.006,JY,0.09,0.012,STEEL,a);
+    CY(x,jb+JH+0.03,JY,0.014,0.05,DARK,a);
+  }
+  if(!gz)drawJar(JX,wl,1);
+  else if(!gz.newOn){if(gz.oldA>0.01)drawJar(JX+0.62*gz.oldX,wlen(S.swap.v0),gz.oldA);}
+  else drawJar(JX+0.62*gz.newX,wl,1);
+
+  /* siphon */
+  CY(JX,INLET-0.004,JY,0.012,0.02,STEEL,1);
+  items.push({m:MESH.hose,M:ident(),c:HOSE,a:0.30,e:false,p:[0,1.2,0]});
+  if(S.primed){items.push({m:MESH.hw,M:ident(),c:S.flowing?[0.25,0.58,0.95]:[0.42,0.68,0.92],a:0.85,e:false,p:[0,1.2,0.01]});}
+  else{var hh=Math.max(0.001,surf-INLET);CY(JX,INLET+hh/2,JY,0.0045,hh,WATERC,0.85);}
+  if(S.flowing){for(var i=0;i<30;i++){var pp=pathAt((S.pp+i/30)%1);add(MESH.sph,pp[0],pp[1],pp[2],0.0038,0.0038,0.0038,[0.85,0.95,1],0.95,false);}}
+  CY(JX,SPOUT+0.015,SY,0.009,0.03,STEEL,1);
+  /* shutter plate under the spout: slides aside when a cup is on the platform */
+  B(JX+0.07*S.valveA,SPOUT-0.012,SY,0.07,0.006,0.05,AMB,1,true);
+
+  /* pinch valve and platform linkage */
+  var gap=0.004+0.012*S.valveA;
+  [-1,1].forEach(function(sg){B(JX,VALH,SY+sg*(gap/2+0.006),0.05,0.03,0.012,STEEL,1,true);});
+  [-0.03,0.03].forEach(function(dx2){B(JX+dx2,VALH,SY,0.008,0.05,0.05,DARK,1,false);});
+  var lev=defl*EXAG;
+  CY(JX+0.10,(PLAT+VALH)/2+lev,0.215,0.004,VALH-PLAT,STEEL,1);
+  B(JX+0.065,VALH+lev*0.4,0.19,0.07,0.008,0.008,DARK,1,false);
+  /* squeeze bulb */
+  var bs=S.bulb?(1-0.35*Math.sin(Math.min(1,S.bulb.t/0.7)*Math.PI)):1;
+  SPH(JX+0.14,VALH+0.10,SY,0.03*bs,[0.2,0.2,0.23],1);CYX(JX+0.075,VALH+0.10,SY,0.005,0.09,HOSE,0.7);
+
+  /* front panel: clear-tube window, throughput wheel (counter only), level scale on the left */
+  B(JX,1.28,0,0.09,0.07,0.004,[0.9,0.97,1],0.35,true);
+  CYZ(JX,1.46,-0.007,0.05,0.014,LIGHT,1);
+  var wa=S.wheel;B(JX+0.04*Math.sin(wa),1.46+0.04*Math.cos(wa),-0.017,0.01,0.012,0.008,DARK,1,false);
+  B(0.045,1.10,-0.002,0.05,0.66,0.004,DARK,1,false);
+  B(0.045,0.88,-0.005,0.036,0.22,0.004,RED,1,false);
+  B(0.045,1.10,-0.005,0.036,0.22,0.004,AMB,1,false);
+  B(0.045,1.32,-0.005,0.036,0.22,0.004,GRN,1,false);
+  B(0.09,0.77+S.V/20*0.66,-0.008,0.022,0.018,0.006,DARK,1,false);
+
+  /* open platform, tilted grooved drip tray, narrow drain, sealed drain tray */
+  var tilt=[0.1,0,0];
+  B(JX,TRAY,0.12,0.28,0.012,0.24,STEEL,1,true,tilt);
+  [-0.09,-0.03,0.03,0.09].forEach(function(o){B(JX+o,TRAY+0.008,0.12,0.008,0.004,0.22,DARK,1,false,tilt);});
+  CY(JX,TRAY+0.008,0.12,0.012,0.006,DARK,1);
+  COIL(JX,TRAY+0.01,PLAT-pdz-0.012,SY,0.6,STEEL);
+  B(JX,PLAT-0.006-pdz,SY,0.20,0.012,0.20,STEEL,1,true);
+  if(S.floor>0){var pr=Math.min(0.45,0.04+Math.sqrt(S.floor)*0.004);CY(JX,0.002,-0.10,pr,0.003,WATERC,0.6);}
+
+  /* dimension lines */
+  if(S.dims){
+    var DC2=[0.12,0.38,0.62];
+    B(-0.14,HT/2,-0.02,0.004,HT,0.004,DC2,1,false);
+    DIMH.forEach(function(h){B(-0.10,h,-0.02,0.08,0.004,0.004,DC2,1,false);});
+    B(CX,0.004,-0.14,WD,0.004,0.004,DC2,1,false);B(0,0.004,-0.14,0.004,0.004,0.06,DC2,1,false);B(WD,0.004,-0.14,0.004,0.004,0.06,DC2,1,false);
+    B(WD+0.14,0.004,DC,0.004,0.004,DEP,DC2,1,false);B(WD+0.14,0.004,0,0.06,0.004,0.004,DC2,1,false);B(WD+0.14,0.004,DEP,0.06,0.004,0.004,DC2,1,false);
+  }
+
+  /* cup, water in cup, streams */
+  if(c){
+    var d=CUPS[c.key],cp=cupPos(c),bot=cp[1],wh=Math.min(d.h-0.004,c.ml/1e6/(Math.PI*d.r*d.r));
+    CY(cp[0],bot+d.h/2,cp[2],d.r,d.h,d.col,0.34);
+    if(wh>0.001)CY(cp[0],bot+0.003+wh/2,cp[2],d.r*0.95,wh,WATERC,0.7);
+    var nh=Math.min(d.h,d.cap/1e6/(Math.PI*d.r*d.r));CY(cp[0],bot+nh,cp[2],d.r*1.015,0.002,AMB,0.9);
+    if(c.key==='mug')B(cp[0]+d.r+0.012,bot+d.h*0.55,cp[2],0.022,0.05,0.01,d.col,1,false);
+    var top=bot+(wh>0.001?wh+0.003:0);
+    if(S.flowing&&c.state==='on'){
+      CY(JX,(SPOUT+top)/2,SY,0.0035,SPOUT-top,WATERC,0.85);
+      if(c.ml>=cupBrim(c)-1)CY(JX+d.r+0.003,(bot+d.h+TRAY+0.012)/2,SY,0.004,bot+d.h-TRAY-0.012,WATERC,0.7);
+    }
+  }
+  drawUser();
+}
+
+/* ---------- part markers ---------- */
+var LAB=[
+ {t:'20 L jar on spring cradle',p:[JX+0.17,1.10,JY]},
+ {t:'Cradle springs and stop',p:[JX+0.08,0.90,JY]},
+ {t:'Siphon pickup (fixed height)',p:[JX,INLET,JY]},
+ {t:'Fixed siphon tube and crest',p:[JX,CREST,0.28]},
+ {t:'Clear tube window',p:[JX,1.28,0]},
+ {t:'Throughput wheel (counts litres)',p:[JX,1.46,0]},
+ {t:'Level scale (marker moves with jar weight)',p:[0.045,1.10,0]},
+ {t:'Pinch valve',p:[JX+0.025,VALH,SY]},
+ {t:'Priming bulb',p:[JX+0.14,VALH+0.10,SY]},
+ {t:'Cup platform on spring (trips shutter)',p:[JX+0.10,PLAT-0.006,SY]},
+ {t:'Shutter over the spout',p:[JX,SPOUT-0.012,SY]},
+ {t:'Tilted grooved drip tray',p:[JX+0.12,TRAY,0.12]},
+ {t:'Corner door: jar loads sideways at low level',p:[WD+0.004,0.27,JY]},
+ {t:'Jar pedal (lowers the cradle to the door)',p:[JX,PEDAL_Y,-0.10]}
+];
+var DIMH=[0.10,PLAT,SPOUT,SURF0,HT];
+var DIML=[
+ {t:'1.70 m total height',p:[-0.14,HT,-0.02],a:'l'},
+ {t:'1.22 m water surface',p:[-0.14,SURF0,-0.02],a:'l'},
+ {t:'1.10 m spout',p:[-0.14,SPOUT,-0.02],a:'l'},
+ {t:'0.80 m cup platform',p:[-0.14,PLAT,-0.02],a:'l'},
+ {t:'0.10 m jar loading level',p:[-0.14,0.10,-0.02],a:'l'},
+ {t:'0.70 m width',p:[CX,0.004,-0.14],a:'c'},
+ {t:'0.62 m depth',p:[WD+0.14,0.004,DC],a:'c'},
+ {t:'Jar 0.34 m dia x 0.30 m',p:[JX-0.17,1.0,JY-0.17],a:'l'}
+];
+var pinEls=LAB.map(function(l,i){var e=document.createElement('div');e.className='pin';e.textContent=String(i+1);$('pins').appendChild(e);return e;});
+var dimEls=DIML.map(function(l){var e=document.createElement('div');e.className='dim';e.textContent=l.t;$('pins').appendChild(e);return e;});
+$('key').innerHTML=LAB.map(function(l,i){return '<li data-i="'+i+'"><span class="n">'+(i+1)+'</span><span>'+l.t+'</span></li>';}).join('');
+Array.prototype.forEach.call($('key').children,function(li){
+  var i=parseInt(li.getAttribute('data-i'),10);
+  li.addEventListener('mouseenter',function(){pinEls[i].classList.add('hot');});
+  li.addEventListener('mouseleave',function(){pinEls[i].classList.remove('hot');});
+});
+
+/* ---------- camera and draw ---------- */
+var VP=ident(),eye=[0,0,0];
+function drawItem(it){
+  gl.uniformMatrix4fv(uM,false,it.M);gl.uniformMatrix3fv(uNM,false,normalMat(it.M));
+  gl.uniform4f(uC,it.c[0],it.c[1],it.c[2],it.a);gl.uniform1f(uUnlit,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,it.m.pb);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,it.m.nb);gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,it.m.ib);gl.drawElements(gl.TRIANGLES,it.m.n,gl.UNSIGNED_SHORT,0);
+}
+function drawEdges(it){
+  gl.uniformMatrix4fv(uM,false,it.M);gl.uniformMatrix3fv(uNM,false,normalMat(it.M));
+  gl.uniform4f(uC,edgeCol[0],edgeCol[1],edgeCol[2],1);gl.uniform1f(uUnlit,1);
+  gl.bindBuffer(gl.ARRAY_BUFFER,it.m.lpb);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,it.m.lnb);gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,it.m.eb);gl.drawElements(gl.LINES,it.m.en,gl.UNSIGNED_SHORT,0);
+}
+var bg=[0.91,0.93,0.95],frame=0;
+function themeColors(){
+  var cs=getComputedStyle($('stage')).backgroundColor.match(/[\d.]+/g);
+  if(cs){bg=[cs[0]/255,cs[1]/255,cs[2]/255];}
+  var fl=getComputedStyle(document.documentElement).getPropertyValue('--floor').trim(),ed=getComputedStyle(document.documentElement).getPropertyValue('--edge').trim();
+  function hex(h,fb){var m=/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h);return m?[parseInt(m[1],16)/255,parseInt(m[2],16)/255,parseInt(m[3],16)/255]:fb;}
+  floorCol=hex(fl,floorCol);edgeCol=hex(ed,edgeCol);
+}
+function resize(){
+  var r=$('stage').getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);
+  var w=Math.max(10,Math.round(r.width*dpr)),h=Math.max(10,Math.round(r.height*dpr));
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+}
+function render(){
+  resize();
+  gl.viewport(0,0,cv.width,cv.height);
+  gl.clearColor(bg[0],bg[1],bg[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);
+  var v=S.view,tg=[0,0.85,0.25];
+  eye=[tg[0]+v.dist*Math.sin(v.az)*Math.cos(v.el),tg[1]+v.dist*Math.sin(v.el),tg[2]+v.dist*Math.cos(v.az)*Math.cos(v.el)];
+  var P=persp(0.62,cv.width/cv.height,0.1,20),V=lookAt(eye,tg,[0,1,0]);
+  VP=mul(P,V);
+  gl.uniformMatrix4fv(uVP,false,VP);gl.uniform3f(uEye,eye[0],eye[1],eye[2]);
+  var op=[],tr=[];
+  items.forEach(function(it){(it.a>=0.999?op:tr).push(it);it.d=Math.pow(it.p[0]-eye[0],2)+Math.pow(it.p[1]-eye[1],2)+Math.pow(it.p[2]-eye[2],2);});
+  gl.disable(gl.BLEND);gl.depthMask(true);
+  op.forEach(function(it){drawItem(it);});
+  tr.sort(function(a,b){return b.d-a.d;});
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+  tr.forEach(function(it){drawItem(it);});
+  gl.disable(gl.BLEND);gl.depthMask(true);
+  items.forEach(function(it){if(it.e)drawEdges(it);});
+  var W2=$('stage').clientWidth,H2=$('stage').clientHeight;
+  DIML.forEach(function(l,i){
+    var el=dimEls[i];
+    if(!S.dims){el.style.display='none';return;}
+    var w=W(l.p[0],l.p[1],l.p[2]);
+    var x=VP[0]*w[0]+VP[4]*w[1]+VP[8]*w[2]+VP[12],y=VP[1]*w[0]+VP[5]*w[1]+VP[9]*w[2]+VP[13],ww=VP[3]*w[0]+VP[7]*w[1]+VP[11]*w[2]+VP[15];
+    if(ww<=0.01){el.style.display='none';return;}
+    var sx=(x/ww*0.5+0.5)*W2,sy=(1-(y/ww*0.5+0.5))*H2;
+    el.style.display='block';el.style.transform='translate('+Math.round(sx)+'px,'+Math.round(sy)+'px) translate('+(l.a==='l'?'calc(-100% - 8px)':'-50%')+',-50%)';
+  });
+  LAB.forEach(function(l,i){
+    var el=pinEls[i];
+    if(S.labels===0){el.style.display='none';return;}
+    var w=W(l.p[0],l.p[1],l.p[2]);
+    var x=VP[0]*w[0]+VP[4]*w[1]+VP[8]*w[2]+VP[12],y=VP[1]*w[0]+VP[5]*w[1]+VP[9]*w[2]+VP[13],ww=VP[3]*w[0]+VP[7]*w[1]+VP[11]*w[2]+VP[15];
+    if(ww<=0.01){el.style.display='none';return;}
+    var sx=(x/ww*0.5+0.5)*W2,sy=(1-(y/ww*0.5+0.5))*H2;
+    el.style.display='block';el.style.transform='translate('+Math.round(sx)+'px,'+Math.round(sy)+'px)'+(el.classList.contains('hot')?' scale(1.5)':'');
+  });
+}
+
+/* ---------- HUD and checks ---------- */
+var HUDS=[['jar','Jar water'],['surf','Water surface'],['base','Jar base'],['head','Head over spout'],['flow','Flow'],['cupml','Cup contents'],['load','Platform load'],['gap','Air gap above cup'],['reach','Arm reach needed']];
+$('hud').innerHTML=HUDS.map(function(h){return '<div class="card"><div class="k">'+h[1]+'</div><div class="v" id="h_'+h[0]+'">-</div></div>';}).join('');
+var CHK=[['R1','Hands-free dispensing'],['R2','Clean, germ-free water'],['R3','Drinking and hand-washing kept apart'],['R4','Spills do not reach the floor'],['R6','Reach for children and wheelchair users'],['R7','Weak supply pressure'],['R8','Fast filling'],['R9','Opening for tall bottles'],['R10','Shock-proof electrics']];
+$('chk').innerHTML=CHK.map(function(c){return '<tr><td>'+c[0]+' '+c[1]+'</td><td id="c_'+c[0]+'"></td><td class="st" id="s_'+c[0]+'"></td></tr>';}).join('');
+function setChk(id,txt,cls,res){$('c_'+id).textContent=txt;var s=$('s_'+id);s.textContent=res;s.className='st '+cls;}
+var UN={stand:'standing adult',wheel:'wheelchair user',none:'person'};
+function updateHud(){
+  var surf=surfAt(S.V),head=surf-SPOUT,c=S.cup,d=c?CUPS[c.key]:CUPS[S.cupKey];
+  var gap=(SPOUT-(PLAT+d.h))*1000,Qn=flowAt(head),need=S.user==='none'?0:reachNeed(),who=UN[S.user];
+  $('h_jar').textContent=S.V.toFixed(1)+' L';
+  $('h_surf').textContent=surf.toFixed(3)+' m';
+  $('h_base').textContent=baseAt(S.V).toFixed(3)+' m';
+  $('h_head').textContent=(head*1000).toFixed(0)+' mm';
+  $('h_flow').textContent=(S.flowing?S.Q:0).toFixed(0)+' mL/s';
+  $('h_cupml').textContent=c?Math.round(c.ml)+' mL':'no cup';
+  $('h_load').textContent=Math.round(loadG())+' g, '+(deflect()*1000).toFixed(1)+' mm';
+  $('h_gap').textContent=gap.toFixed(0)+' mm';
+  $('h_reach').textContent=S.user==='none'?'-':Math.round(need*1000)+' of '+Math.round(ARM*1000)+' mm';
+  $('vLb').textContent=S.V.toFixed(1)+' L';$('vSl').value=S.V;
+  var m;
+  if(S.swap)m=swapMsg(S.swap.t);
+  else if(!S.primed)m='No water: the siphon has lost its prime. Squeeze the bulb.';
+  else if(S.V<=0.003)m='Jar empty. Change the jar.';
+  else if(S.floor>0&&c)m='Water is running over the cup and onto the floor. Nothing catches or warns.';
+  else if(!c)m='Idle. Place a cup: its weight opens the shutter, nothing is touched.';
+  else if(c.state==='in')m='The '+who+' is putting the cup on the platform.';
+  else if(c.state==='out')m='The '+who+' is taking the cup away. The platform springs back and the shutter closes.';
+  else if(S.flowing)m='Filling '+d.n.toLowerCase()+': '+Math.round(c.ml)+' mL at '+S.Q.toFixed(0)+' mL/s. Remove the cup to stop.';
+  else m='Cup on the platform but its weight is below the '+TRIP_G+' g trip load.';
+  $('status').textContent=(S.msg?S.msg+' ':'')+m;
+  var tm=Qn>0?d.cap/Qn:0;
+  setChk('R1','Touch points: 0. '+(S.flowing?'Cup weight opened the shutter.':'Shutter opens on cup weight alone ('+TRIP_G+' g trip).')+(S.primed?'':' The siphon has lost its prime.'),S.primed?'pass':'fail',S.primed?'Pass':'Fails: no prime');
+  setChk('R2','Only a clear tube and a throughput wheel. Nothing senses the water quality.','warn','Open risk');
+  setChk('R3','The cup platform and grooved tray are open and wide, so they could be used for hand washing.','warn','Open risk');
+  setChk('R4','No drain tray. A spill runs off the tilted grooved tray to the floor.'+(S.floor>0?' Water on the floor: '+Math.round(S.floor)+' mL.':' None so far.'),S.floor>0?'fail':'warn',S.floor>0?'Spilled':'Open risk');
+  if(S.user==='none')setChk('R6','Platform '+PLAT.toFixed(2)+' m, spout '+SPOUT.toFixed(2)+' m. Forward reach range 0.38 to 1.22 m.','pass','Pass');
+  else setChk('R6','Platform at '+PLAT.toFixed(2)+' m. The '+who+' needs '+Math.round(need*1000)+' mm of the '+Math.round(ARM*1000)+' mm arm reach'+(S.user==='stand'?', with a slight lean.':', leaning forward.'),need<=ARM*0.92?'pass':(need<=ARM?'warn':'fail'),need<=ARM*0.92?'Pass':(need<=ARM?'Marginal':'Out of reach'));
+  setChk('R7','Head '+Math.round(head*1000)+' mm at '+S.V.toFixed(1)+' L. Constant until the jar reaches its stop at about 3 L.',head>0.05?'pass':(head>0.002?'warn':'fail'),head>0.05?'Pass':(head>0.002?'Weak flow':'No flow'));
+  setChk('R8','Flow '+Qn.toFixed(0)+' mL/s. A '+d.cap+' mL '+d.n.toLowerCase()+' takes about '+tm.toFixed(0)+' s.',Qn>=20?'pass':'warn',Qn>=20?'Pass':'Slow');
+  setChk('R9','Air gap above the '+d.n.toLowerCase()+': '+gap.toFixed(0)+' mm (minimum 20 mm).',gap>=20?'pass':'fail',gap>=20?'Pass':'Does not fit');
+  setChk('R10','The station has no electrics. The shutter and valve are mechanical.','pass','Pass');
+}
+
+/* ---------- controls ---------- */
+function on(id,fn){$(id).addEventListener('click',fn);}
+on('bPlace',function(){S.msg='';placeCup();});
+on('bRemove',function(){removeCup();});
+on('bAuto',function(){S.auto=!S.auto;this.classList.toggle('on',S.auto);S.autoT=1;});
+on('bTen',function(){
+  var d=CUPS[S.cupKey],n=0;S.msg='';
+  for(var i=0;i<10;i++){
+    if(S.V*1000<d.cap||!S.primed)break;
+    S.V-=d.cap/1000;S.total+=d.cap/1000;S.wheel+=d.cap/1000*Math.PI;n++;
+  }
+  S.msg='Served '+n+' x '+d.cap+' mL ('+(n*d.cap/1000).toFixed(1)+' L).';
+  if(n<10)S.msg+=' Stopped early: '+(!S.primed?'siphon not primed.':'jar too low.');
+});
+on('bSwap',function(){S.msg='';startSwap();});
+on('bAir',function(){S.primed=false;S.msg='';});
+on('bBulb',function(){S.msg='';startBulb();});
+$('vSl').addEventListener('input',function(){S.V=parseFloat(this.value);});
+$('cupSel').addEventListener('change',function(){S.cupKey=this.value;if(S.cup&&S.cup.state==='on'){S.cup=null;placeCup();}});
+$('userSel').addEventListener('change',function(){S.user=this.value;S.hand=null;S.reachT=0;if(S.cup&&S.cup.state!=='on'){S.cup=null;}});
+$('panSel').addEventListener('change',function(){S.panels=parseInt(this.value,10);});
+$('dimSel').addEventListener('change',function(){S.dims=parseInt(this.value,10);});
+$('labSel').addEventListener('change',function(){S.labels=parseInt(this.value,10);});
+$('spd').addEventListener('change',function(){S.speed=parseFloat(this.value);});
+function setView(az,el,d){S.view.az=az;S.view.el=el;S.view.dist=d;}
+on('vIso',function(){setView(0.95,0.2,4.0);});
+on('vFront',function(){setView(0,0.04,3.9);});
+on('vSide',function(){setView(Math.PI/2,0.04,3.9);});
+on('vTop',function(){setView(0,1.45,4.2);});
+
+var ptrs={},lastPinch=0;
+cv.addEventListener('pointerdown',function(e){cv.setPointerCapture(e.pointerId);ptrs[e.pointerId]={x:e.clientX,y:e.clientY};});
+cv.addEventListener('pointerup',function(e){delete ptrs[e.pointerId];lastPinch=0;});
+cv.addEventListener('pointercancel',function(e){delete ptrs[e.pointerId];lastPinch=0;});
+cv.addEventListener('pointermove',function(e){
+  var p=ptrs[e.pointerId];if(!p)return;
+  var ids=Object.keys(ptrs);
+  if(ids.length===1){
+    S.view.az-=(e.clientX-p.x)*0.007;
+    S.view.el=Math.max(-0.2,Math.min(1.5,S.view.el+(e.clientY-p.y)*0.006));
+  }else if(ids.length===2){
+    ptrs[e.pointerId]={x:e.clientX,y:e.clientY};
+    var a=ptrs[ids[0]],b=ptrs[ids[1]],dd=Math.hypot(a.x-b.x,a.y-b.y);
+    if(lastPinch)S.view.dist=Math.max(1.2,Math.min(7,S.view.dist*lastPinch/dd));
+    lastPinch=dd;return;
+  }
+  ptrs[e.pointerId]={x:e.clientX,y:e.clientY};
+});
+cv.addEventListener('wheel',function(e){e.preventDefault();S.view.dist=Math.max(1.2,Math.min(7,S.view.dist*Math.exp(e.deltaY*0.001)));},{passive:false});
+cv.addEventListener('keydown',function(e){
+  if(e.key==='ArrowLeft')S.view.az+=0.1;else if(e.key==='ArrowRight')S.view.az-=0.1;
+  else if(e.key==='ArrowUp')S.view.el=Math.min(1.5,S.view.el+0.08);else if(e.key==='ArrowDown')S.view.el=Math.max(-0.2,S.view.el-0.08);
+  else if(e.key==='+'||e.key==='=')S.view.dist=Math.max(1.2,S.view.dist*0.9);else if(e.key==='-')S.view.dist=Math.min(7,S.view.dist*1.1);
+});
+
+/* ---------- loop ---------- */
+var last=performance.now();
+window.__sim={S:S,step:step};
+function loop(now){
+  var rdt=Math.min(0.05,(now-last)/1000);last=now;
+  step(rdt);
+  buildScene();
+  if(frame%30===0)themeColors();
+  render();
+  if(frame%6===0)updateHud();
+  frame++;
+  requestAnimationFrame(loop);
+}
+themeColors();updateHud();
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
